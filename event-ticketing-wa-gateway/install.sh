@@ -330,15 +330,15 @@ else
             rm -rf "$CLONE_TMP"
 
         else
-            # Coba cari artisan secara rekursif 2 level
-            ARTISAN_PATH=$(find "$CLONE_TMP" -maxdepth 3 -name "artisan" | head -1)
+            # Coba cari artisan secara rekursif 2 levell
+            ARTISAN_PATH=$(find "$CLONE_TMP" -maxdepth 5 -name "artisan" | head -1)
             if [ -n "$ARTISAN_PATH" ]; then
                 LARAVEL_ROOT=$(dirname "$ARTISAN_PATH")
                 print_info "Deteksi: Laravel ditemukan di $LARAVEL_ROOT"
                 mkdir -p "$APP_DIR/apps"
                 mv "$LARAVEL_ROOT" "$APP_DIR/apps/api"
                 # Coba pindahkan wa-gateway jika ada
-                WA_PATH=$(find "$CLONE_TMP" -maxdepth 3 -name "index.js" -path "*/wa-gateway/*" | head -1)
+                WA_PATH=$(find "$CLONE_TMP" -maxdepth 5 -name "index.js" -path "*/wa-gateway/*" | head -1)
                 if [ -n "$WA_PATH" ]; then
                     mv "$(dirname "$WA_PATH")" "$APP_DIR/apps/wa-gateway"
                 else
