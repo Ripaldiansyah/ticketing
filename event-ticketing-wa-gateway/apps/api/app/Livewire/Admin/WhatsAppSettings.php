@@ -66,7 +66,11 @@ class WhatsAppSettings extends Component
         if (!$this->selectedAccount) return;
 
         // Ensure session started in gateway (idempotent)
-        $service->startSession($this->selectedAccount->session_id);
+        try {
+            $service->startSession($this->selectedAccount->session_id);
+        } catch (\Exception $e) {
+            // Gateway mungkin belum jalan, lanjutkan ke tab scan
+        }
 
         $this->activeTab = 'scan';
         $this->checkStatus($service);
@@ -76,18 +80,23 @@ class WhatsAppSettings extends Component
     {
         if (!$this->selectedAccount) return;
 
-        $status = $service->getStatus($this->selectedAccount->session_id);
+        try {
+            $status = $service->getStatus($this->selectedAccount->session_id);
+            $this->scanStatus = $status;
+            $this->qrCode = $status['qr'] ?? null;
 
-        $this->scanStatus = $status;
-        $this->qrCode = $status['qr'] ?? null;
-
-        // Update number if connected and we have info
-        if (($status['connected'] ?? false) && isset($status['info'])) {
-            if (!$this->selectedAccount->number) {
-                $this->selectedAccount->update([
-                    'number' => $status['info']['wid']['user'] ?? null
-                ]);
+            // Update number if connected and we have info
+            if (($status['connected'] ?? false) && isset($status['info'])) {
+                if (!$this->selectedAccount->number) {
+                    $this->selectedAccount->update([
+                        'number' => $status['info']['wid']['user'] ?? null
+                    ]);
+                }
             }
+        } catch (\Exception $e) {
+            // Gateway tidak bisa diakses, tampilkan info ke user
+            $this->scanStatus = ['connected' => false, 'qr' => null, 'error' => 'Gateway tidak bisa diakses: ' . $e->getMessage()];
+            $this->qrCode = null;
         }
     }
 

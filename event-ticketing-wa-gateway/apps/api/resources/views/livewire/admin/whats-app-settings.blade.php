@@ -171,6 +171,22 @@
                         </div>
                         <p class="text-sm text-gray-500 animate-pulse">Buka WhatsApp > Linked Devices > Link a Device
                         </p>
+                        @elseif(isset($scanStatus['error']))
+                        <div
+                            class="flex flex-col items-center justify-center p-8 bg-red-50 rounded-lg border border-red-200 w-full">
+                            <svg class="h-10 w-10 text-red-400 mb-3" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <p class="text-red-600 font-medium text-center">WA Gateway tidak bisa diakses</p>
+                            <p class="text-red-400 text-sm mt-1 text-center">Pastikan wa-gateway sedang berjalan (PM2)
+                            </p>
+                            <button wire:click="checkStatus"
+                                class="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm font-medium">
+                                🔄 Coba Lagi
+                            </button>
+                        </div>
                         @else
                         <div
                             class="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-lg border border-dashed border-gray-300 w-full h-64">

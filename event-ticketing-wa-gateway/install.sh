@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 # CONFIGURATION - EDIT SESUAI KEBUTUHAN
 # ============================================================
 APP_DIR="/var/www/event-ticketing"
-APP_URL="http://13.250.8.208"           # Ganti dengan domain/IP VPS Anda
+APP_URL="http://18.143.76.195"           # Ganti dengan domain/IP VPS Anda
 DB_DATABASE="event_ticketing"
 DB_USERNAME="ticketing_user"
 DB_PASSWORD="tiket123"   # Password random, bisa diganti manual
@@ -162,31 +162,31 @@ apt-get install -y \
 print_step "System packages berhasil diinstall"
 
 # ============================================================
-# STEP 2: Install PHP 8.2
+# STEP 2: Install PHP 8.3
 # ============================================================
-print_header "STEP 2: Install PHP 8.2"
+print_header "STEP 2: Install PHP 8.3"
 
 add-apt-repository ppa:ondrej/php -y
 apt-get update -y
 apt-get install -y \
-    php8.2 \
-    php8.2-cli \
-    php8.2-fpm \
-    php8.2-mysql \
-    php8.2-mbstring \
-    php8.2-xml \
-    php8.2-bcmath \
-    php8.2-curl \
-    php8.2-zip \
-    php8.2-gd \
-    php8.2-intl \
-    php8.2-readline \
-    php8.2-tokenizer \
-    php8.2-dom \
-    php8.2-fileinfo
+    php8.3 \
+    php8.3-cli \
+    php8.3-fpm \
+    php8.3-mysql \
+    php8.3-mbstring \
+    php8.3-xml \
+    php8.3-bcmath \
+    php8.3-curl \
+    php8.3-zip \
+    php8.3-gd \
+    php8.3-intl \
+    php8.3-readline \
+    php8.3-tokenizer \
+    php8.3-dom \
+    php8.3-fileinfo
 
 php -v
-print_step "PHP 8.2 berhasil diinstall"
+print_step "PHP 8.3 berhasil diinstall"
 
 # ============================================================
 # STEP 3: Install Composer
@@ -219,6 +219,31 @@ print_step "Node.js berhasil diinstall"
 # Install PM2 untuk process management
 npm install -g pm2
 print_step "PM2 berhasil diinstall"
+
+# ============================================================
+# Install Chromium untuk WhatsApp Gateway (puppeteer)
+# ============================================================
+print_info "Install Chromium + puppeteer dependencies..."
+apt-get install -y \
+    chromium-browser \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libatspi2.0-0 || true
+
+print_step "Chromium berhasil diinstall"
 
 # ============================================================
 # STEP 5: Install MySQL 8.0
@@ -272,7 +297,7 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
         fastcgi_hide_header X-Powered-By;
@@ -570,7 +595,7 @@ else
 fi
 
 # Check PHP-FPM
-if systemctl is-active --quiet php8.2-fpm; then
+if systemctl is-active --quiet php8.3-fpm; then
     print_step "PHP-FPM: RUNNING"
 else
     print_error "PHP-FPM: STOPPED"
