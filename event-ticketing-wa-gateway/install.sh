@@ -302,25 +302,66 @@ print_header "STEP 7: Setup Project Files"
 mkdir -p "$APP_DIR"
 
 # Cek apakah sudah ada project atau perlu clone
-if [ -d "$APP_DIR/apps" ]; then
+if [ -f "$APP_DIR/apps/api/artisan" ] || [ -f "$APP_DIR/artisan" ]; then
     print_info "Project sudah ada di $APP_DIR, skip clone..."
 else
     print_info "Masukkan URL Git repository Anda:"
     read -rp "  Git URL (kosongkan jika copy manual): " GIT_URL
 
     if [ -n "$GIT_URL" ]; then
-        git clone "$GIT_URL" "$APP_DIR"
-        print_step "Repository berhasil di-clone"
+        # Clone ke tmp dulu agar bisa deteksi struktur
+        CLONE_TMP="/tmp/repo-clone-$$"
+        git clone "$GIT_URL" "$CLONE_TMP"
+        print_step "Repository berhasil di-clone ke temp"
+
+        # --- Auto-detect struktur repo ---
+        if [ -f "$CLONE_TMP/artisan" ]; then
+            # Repo langsung berisi Laravel di root (tanpa apps/api)
+            print_info "Deteksi: Laravel ada di root repo"
+            mkdir -p "$APP_DIR/apps"
+            mv "$CLONE_TMP" "$APP_DIR/apps/api"
+            # Buat folder wa-gateway kosong jika tidak ada
+            mkdir -p "$APP_DIR/apps/wa-gateway"
+
+        elif [ -f "$CLONE_TMP/apps/api/artisan" ]; then
+            # Repo sudah monorepo standar: apps/api + apps/wa-gateway
+            print_info "Deteksi: Monorepo standar (apps/api)"
+            cp -r "$CLONE_TMP/". "$APP_DIR/"
+            rm -rf "$CLONE_TMP"
+
+        else
+            # Coba cari artisan secara rekursif 2 level
+            ARTISAN_PATH=$(find "$CLONE_TMP" -maxdepth 3 -name "artisan" | head -1)
+            if [ -n "$ARTISAN_PATH" ]; then
+                LARAVEL_ROOT=$(dirname "$ARTISAN_PATH")
+                print_info "Deteksi: Laravel ditemukan di $LARAVEL_ROOT"
+                mkdir -p "$APP_DIR/apps"
+                mv "$LARAVEL_ROOT" "$APP_DIR/apps/api"
+                # Coba pindahkan wa-gateway jika ada
+                WA_PATH=$(find "$CLONE_TMP" -maxdepth 3 -name "index.js" -path "*/wa-gateway/*" | head -1)
+                if [ -n "$WA_PATH" ]; then
+                    mv "$(dirname "$WA_PATH")" "$APP_DIR/apps/wa-gateway"
+                else
+                    mkdir -p "$APP_DIR/apps/wa-gateway"
+                fi
+                rm -rf "$CLONE_TMP"
+            else
+                print_error "Tidak dapat menemukan file artisan di repository!"
+                print_info "Isi repo yang di-clone:"
+                ls -la "$CLONE_TMP/"
+                rm -rf "$CLONE_TMP"
+                exit 1
+            fi
+        fi
+        print_step "Project berhasil disiapkan di $APP_DIR"
     else
         print_info "Silakan copy project Anda ke: $APP_DIR"
-        print_info "Lalu jalankan ulang bagian setup Laravel..."
         echo ""
         echo "Struktur yang diharapkan:"
         echo "  $APP_DIR/"
         echo "  ├── apps/"
-        echo "  │   ├── api/          <- Laravel"
+        echo "  │   ├── api/          <- Laravel (ada file artisan)"
         echo "  │   └── wa-gateway/   <- Node.js"
-        echo "  └── docker-compose.yml"
         echo ""
         read -rp "Tekan ENTER setelah project di-copy..."
     fi
@@ -330,6 +371,16 @@ fi
 # STEP 8: Setup Laravel
 # ============================================================
 print_header "STEP 8: Setup Laravel Application"
+
+# Pastikan path Laravel benar
+if [ ! -f "$APP_DIR/apps/api/artisan" ]; then
+    print_error "File artisan tidak ditemukan di $APP_DIR/apps/api/"
+    print_info "Isi direktori $APP_DIR:"
+    ls -la "$APP_DIR/" 2>/dev/null || true
+    print_info "Isi direktori $APP_DIR/apps (jika ada):"
+    ls -la "$APP_DIR/apps/" 2>/dev/null || true
+    exit 1
+fi
 
 cd "$APP_DIR/apps/api"
 
@@ -371,8 +422,10 @@ php artisan view:cache
 
 # Set permissions
 chown -R www-data:www-data "$APP_DIR/apps/api"
-chmod -R 755 "$APP_DIR/apps/api/storage"
-chmod -R 755 "$APP_DIR/apps/api/bootstrap/cache"
+chown -R www-data:www-data "$APP_DIR/apps/api/storage"
+chown -R www-data:www-data "$APP_DIR/apps/api/bootstrap/cache"
+chmod -R 775 "$APP_DIR/apps/api/storage"
+chmod -R 775 "$APP_DIR/apps/api/bootstrap/cache"
 
 print_step "Laravel berhasil dikonfigurasi"
 
@@ -381,17 +434,28 @@ print_step "Laravel berhasil dikonfigurasi"
 # ============================================================
 print_header "STEP 9: Setup WhatsApp Gateway"
 
-cd "$APP_DIR/apps/wa-gateway"
+# Cek apakah folder wa-gateway ada dan punya index.js
+if [ -f "$APP_DIR/apps/wa-gateway/index.js" ]; then
+    cd "$APP_DIR/apps/wa-gateway"
 
-# Setup .env
-cp .env.example .env
-sed -i "s|PORT=.*|PORT=$WA_GATEWAY_PORT|g" .env
-sed -i "s|API_KEY=.*|API_KEY=$WA_API_KEY|g" .env
+    # Setup .env
+    if [ -f ".env.example" ]; then
+        cp .env.example .env
+    else
+        # Buat .env manual jika tidak ada
+        echo "PORT=$WA_GATEWAY_PORT" > .env
+        echo "API_KEY=$WA_API_KEY" >> .env
+    fi
+    sed -i "s|PORT=.*|PORT=$WA_GATEWAY_PORT|g" .env
+    sed -i "s|API_KEY=.*|API_KEY=$WA_API_KEY|g" .env
 
-# Install Node.js dependencies
-npm install --omit=dev
-
-print_step "WhatsApp Gateway berhasil dikonfigurasi"
+    # Install Node.js dependencies
+    npm install --omit=dev
+    print_step "WhatsApp Gateway berhasil dikonfigurasi"
+else
+    print_info "wa-gateway tidak ditemukan, skip STEP 9..."
+    print_info "Anda bisa setup manual di: $APP_DIR/apps/wa-gateway/"
+fi
 
 # ============================================================
 # STEP 10: Setup PM2 Process Manager
