@@ -53,26 +53,50 @@ const initSession = async (sessionId) => {
         info: null
     });
 
+    // Auto-detect Chromium path (Linux VPS)
+    const getChromiumPath = () => {
+        const candidates = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/snap/bin/chromium',
+        ];
+        for (const p of candidates) {
+            if (fs.existsSync(p)) return p;
+        }
+        return null; // pakai bundled puppeteer
+    };
+
+    const chromiumPath = getChromiumPath();
+    const puppeteerOptions = {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu',
+            '--single-process',
+            '--disable-extensions'
+        ]
+    };
+    if (chromiumPath) {
+        puppeteerOptions.executablePath = chromiumPath;
+        console.log(`[${sessionId}] Using Chromium: ${chromiumPath}`);
+    }
+
     const client = new Client({
         authStrategy: new LocalAuth({
             clientId: sessionId,
             dataPath: './.wwebjs_auth'
         }),
-        puppeteer: {
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--disable-gpu'
-            ]
-        },
+        puppeteer: puppeteerOptions,
         webVersionCache: {
             type: 'remote',
-            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/refs/heads/main/html/2.3000.1031490220-alpha.html', 
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/refs/heads/main/html/2.3000.1031490220-alpha.html',
         }
     });
 
@@ -308,17 +332,29 @@ app.post('/session/:sessionId/send-text', authMiddleware, async (req, res) => {
 // Scan .wwebjs_auth folder to find existing sessions
 const restoreSessions = async () => {
     const authDir = './.wwebjs_auth';
-    if (fs.existsSync(authDir)) {
-        const files = fs.readdirSync(authDir);
-        for (const file of files) {
-            if (file.startsWith('session-')) {
-                const sessionId = file.replace('session-', '');
-                console.log(`Restoring session: ${sessionId}`);
+    if (!fs.existsSync(authDir)) return;
+
+    const files = fs.readdirSync(authDir);
+    for (const file of files) {
+        if (file.startsWith('session-')) {
+            const sessionId = file.replace('session-', '');
+            console.log(`Restoring session: ${sessionId}`);
+            try {
                 await initSession(sessionId);
+            } catch (err) {
+                console.error(`[${sessionId}] Restore failed, skipping:`, err.message);
+                // Hapus session rusak agar tidak restore lagi
+                sessions.delete(sessionId);
+                sessionData.delete(sessionId);
             }
         }
     }
 };
+
+// Prevent server crash dari unhandled promise rejection
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[WARN] Unhandled Rejection:', reason?.message || reason);
+});
 
 // Start server
 app.listen(PORT, async () => {
