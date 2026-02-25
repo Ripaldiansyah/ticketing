@@ -7,7 +7,9 @@ use App\Livewire\Admin\TicketList;
 use App\Livewire\Staff\CheckIn;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome');
+Route::get('/', function () {
+    return redirect()->route('login');
+});
 
 Route::get('dashboard', App\Livewire\Dashboard::class)
     ->middleware(['auth', 'verified'])

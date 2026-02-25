@@ -68,7 +68,7 @@ const initSession = async (sessionId) => {
         return null; // pakai bundled puppeteer
     };
 
-    const chromiumPath = getChromiumPath();
+    const chromiumPath = getChromiumPath() || process.env.PUPPETEER_EXECUTABLE_PATH;
     const puppeteerOptions = {
         headless: true,
         args: [
@@ -86,6 +86,8 @@ const initSession = async (sessionId) => {
     if (chromiumPath) {
         puppeteerOptions.executablePath = chromiumPath;
         console.log(`[${sessionId}] Using Chromium: ${chromiumPath}`);
+    } else {
+        console.log(`[${sessionId}] WARNING: No system Chromium found, relying on bundled Puppeteer...`);
     }
 
     const client = new Client({
